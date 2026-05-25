@@ -38,9 +38,11 @@ class RegistrationInfolist
                         TextEntry::make('amount')
                             ->money('INR'),
                         TextEntry::make('payment_status'),
-                        TextEntry::make('razorpay_order_id')
+                        TextEntry::make('pg_merchant_txn_no')
+                            ->label('PG Merchant Txn No')
                             ->placeholder('-'),
-                        TextEntry::make('razorpay_payment_id')
+                        TextEntry::make('pg_payment_id')
+                            ->label('PG Payment ID')
                             ->placeholder('-'),
                         IconEntry::make('email_sent')
                             ->boolean(),

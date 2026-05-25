@@ -1,4 +1,4 @@
-// import { Link } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
 
 // const sports = [
 //     'Basketball M/W', 'Volleyball M/W', 'Football M/W',
@@ -104,12 +104,12 @@ export default function Home() {
 
                     {/* Buttons */}
                     <div className="mt-7 flex flex-wrap gap-3 justify-center md:justify-start items-center md:items-start">
-                        {/* <Link
+                        <Link
                             href="/register"
                             className="inline-flex items-center gap-2 rounded-lg bg-green-400 px-6 py-2.5 text-lg font-medium text-green-950 transition hover:bg-green-300 active:scale-95"
                         >
                             Register Now
-                        </Link> */}
+                        </Link>
                         <a
                             href="/brochure/view"
                             target="_blank"

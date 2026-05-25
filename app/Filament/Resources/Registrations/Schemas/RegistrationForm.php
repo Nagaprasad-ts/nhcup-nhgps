@@ -25,8 +25,8 @@ class RegistrationForm
                     ->required(),
                 TextInput::make('captain_contact')
                     ->required(),
-                TextInput::make('razorpay_order_id'),
-                TextInput::make('razorpay_payment_id'),
+                TextInput::make('pg_merchant_txn_no'),
+                TextInput::make('pg_payment_id'),
                 TextInput::make('payment_status')
                     ->required()
                     ->default('pending'),

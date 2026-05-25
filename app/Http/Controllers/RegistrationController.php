@@ -4,10 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Event;
 use App\Models\Registration;
+use App\Services\IciciPgService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
-use Razorpay\Api\Api;
 
 class RegistrationController extends Controller
 {
@@ -20,8 +20,7 @@ class RegistrationController extends Controller
             ->get(['id', 'name', 'fee']);
 
         return Inertia::render('Registration/Create', [
-            'events'          => $events,
-            'razorpay_key_id' => config('services.razorpay.key_id'),
+            'events' => $events,
         ]);
     }
 
@@ -33,70 +32,77 @@ class RegistrationController extends Controller
             ->get(['id', 'name', 'fee']);
 
         return Inertia::render('Basketball/Create', [
-            'events'          => $events,
-            'razorpay_key_id' => config('services.razorpay.key_id'),
+            'events' => $events,
         ]);
     }
 
-    // ─── Create Razorpay Order & Store Pending Registration ──────────────────
+    // ─── Create PG Order & Store Pending Registration ─────────────────────────
 
-    public function store(Request $request)
+    public function store(Request $request, IciciPgService $pgService)
     {
         $validated = $request->validate([
             'institution_name' => ['required', 'string', 'max:255'],
-            'ped_name'         => ['required', 'string', 'max:255'],
-            'ped_contact'      => ['required', 'digits:10'],
-            'captain_name'     => ['required', 'string', 'max:255'],
-            'captain_email'    => ['required', 'email', 'max:255'],
-            'captain_contact'  => ['required', 'digits:10'],
-            'event_id'         => ['required', 'integer', 'exists:events,id'],
+            'ped_name' => ['required', 'string', 'max:255'],
+            'ped_contact' => ['required', 'digits:10'],
+            'captain_name' => ['required', 'string', 'max:255'],
+            'captain_email' => ['required', 'email', 'max:255'],
+            'captain_contact' => ['required', 'digits:10'],
+            'event_id' => ['required', 'integer', 'exists:events,id'],
         ]);
 
         $event = Event::active()->findOrFail($validated['event_id']);
+
+        // Create the pending registration first so we have an ID for merchantTxnNo
+        $registration = Registration::create([
+            ...$validated,
+            'payment_status' => 'pending',
+            'amount' => $event->fee,
+        ]);
+
         try {
-            $api = new Api(
-                config('services.razorpay.key_id'),
-                config('services.razorpay.key_secret')
+            $merchantTxnNo = $pgService->buildMerchantTxnNo($registration->id);
+
+            $registration->update(['pg_merchant_txn_no' => $merchantTxnNo]);
+
+            $params = array_filter([
+                'merchantId' => config('services.icici_pg.merchant_id'),
+                'merchantTxnNo' => $merchantTxnNo,
+                'amount' => number_format((float) $event->fee, 2, '.', ''),
+                'aggregatorID' => config('services.icici_pg.aggregator_id') ?: null,
+                'currencyCode' => '356',
+                'payType' => '0',
+                'customerEmailID' => $validated['captain_email'],
+                'customerName' => $validated['captain_name'],
+                'customerMobileNo' => $validated['captain_contact'],
+                'transactionType' => 'SALE',
+                'txnDate' => now()->format('Ymd').'235959',
+                'returnURL' => config('app.url').'/thank-you',
+            ], fn ($value) => $value !== null);
+
+            $response = $pgService->initiateSale($params);
+
+            if (($response['responseCode'] ?? '') !== 'R1000') {
+                throw new \Exception('ICICI PG rejected the initiateSale request. Response code: '.($response['responseCode'] ?? 'N/A'));
+            }
+
+            $paymentUrl = $pgService->buildPaymentUrl(
+                $response['redirectURI'],
+                $response['tranCtx']
             );
-
-            $amountInPaise = (int) ($event->fee * 100);
-
-            $order = $api->order->create([
-                'amount'          => $amountInPaise,
-                'currency'        => 'INR',
-                'receipt'         => 'nhcup_' . uniqid(),
-                'payment_capture' => 1,   // auto-capture
-                'notes'           => [
-                    'institution' => $validated['institution_name'],
-                    'event'       => $event->name,
-                    'captain'     => $validated['captain_name'],
-                ],
-            ]);
-
-            $registration = Registration::create([
-                ...$validated,
-                'razorpay_order_id' => $order['id'],
-                'payment_status'    => 'pending',
-                'amount'            => $event->fee,
-            ]);
 
             return response()->json([
                 'registration_id' => $registration->id,
-                'order_id'        => $order['id'],
-                'amount'          => $amountInPaise,
-                'currency'        => 'INR',
-                'key_id'          => config('services.razorpay.key_id'),
-                'name'            => $validated['captain_name'],
-                'email'           => $validated['captain_email'],
-                'contact'         => $validated['captain_contact'],
-                'description'     => 'NH Cup 2026 — ' . $event->name,
+                'payment_url' => $paymentUrl,
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Razorpay order creation failed', [
+            Log::error('ICICI PG initiateSale failed', [
                 'error' => $e->getMessage(),
-                'data'  => $validated,
+                'registration_id' => $registration->id,
+                'data' => $validated,
             ]);
+
+            $registration->delete();
 
             return response()->json([
                 'message' => 'Payment initiation failed. Please try again.',
@@ -116,10 +122,10 @@ class RegistrationController extends Controller
 
         return Inertia::render('Registration/Success', [
             'registration' => $registration ? [
-                'captain_name'     => $registration->captain_name,
+                'captain_name' => $registration->captain_name,
                 'institution_name' => $registration->institution_name,
-                'event'            => $registration->event->name,
-                'payment_status'   => $registration->payment_status,
+                'event' => $registration->event->name,
+                'payment_status' => $registration->payment_status,
             ] : null,
         ]);
     }
@@ -127,6 +133,7 @@ class RegistrationController extends Controller
     public function viewBrochure()
     {
         $path = public_path('brochure-file/NHCUP-2026-BROCHURE.pdf');
+
         return response()->file($path, ['Content-Type' => 'application/pdf']);
     }
 }

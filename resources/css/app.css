@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
 
 @source '../views';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
@@ -8,4 +9,33 @@
         'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
         'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
         'Noto Color Emoji';
+    --font-nunito: 'Nunito', ui-sans-serif, system-ui, sans-serif;
+
+    /* Skill Builder brand colours */
+    --color-navy:    #0f2f5e;
+    --color-coral:   #f05a28;
+    --color-iceblue: #e8f4ff;
 }
+
+/* ── Skill Builder card borders ────────────────────────────────────────────── */
+.card-pink  { border: 2.5px dashed #f9a8d4; background: #fff0f5; }
+.card-blue  { border: 2.5px dashed #7dd3fc; background: #f0f9ff; }
+.card-green { border: 2.5px dashed #86efac; background: #f0fdf4; }
+
+/* Hover lift */
+.lift { transition: transform 0.2s, box-shadow 0.2s; }
+.lift:hover { transform: translateY(-5px); box-shadow: 0 14px 30px rgba(0,0,0,0.10); }
+
+/* Float */
+@keyframes float {
+    0%, 100% { transform: translateY(0);    }
+    50%       { transform: translateY(-8px); }
+}
+.float { animation: float 3.5s ease-in-out infinite; }
+
+/* Toast slide-up */
+@keyframes slideUp {
+    from { transform: translateX(-50%) translateY(20px); opacity: 0; }
+    to   { transform: translateX(-50%) translateY(0);    opacity: 1; }
+}
+.toast-show { animation: slideUp 0.3s ease forwards; }

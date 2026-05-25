@@ -78,11 +78,11 @@
         </div>
         <div class="row">
           <span class="label">Payment ID</span>
-          <span class="value">{{ $registration->razorpay_payment_id }}</span>
+          <span class="value">{{ $registration->pg_payment_id ?? '-' }}</span>
         </div>
         <div class="row">
-          <span class="label">Order ID</span>
-          <span class="value">{{ $registration->razorpay_order_id }}</span>
+          <span class="label">Transaction No</span>
+          <span class="value">{{ $registration->pg_merchant_txn_no ?? '-' }}</span>
         </div>
       </div>
 

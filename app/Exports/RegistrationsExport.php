@@ -33,8 +33,8 @@ class RegistrationsExport implements FromQuery, WithHeadings, WithMapping, WithS
             'Captain Contact',
             'Payment Status',
             'Amount (₹)',
-            'Razorpay Order ID',
-            'Razorpay Payment ID',
+            'PG Merchant Txn No',
+            'PG Payment ID',
             'Registered At',
         ];
     }
@@ -52,8 +52,8 @@ class RegistrationsExport implements FromQuery, WithHeadings, WithMapping, WithS
             $row->captain_contact,
             $row->payment_status,
             $row->amount,
-            $row->razorpay_order_id ?? '-',
-            $row->razorpay_payment_id ?? '-',
+            $row->pg_merchant_txn_no ?? '-',
+            $row->pg_payment_id ?? '-',
             $row->created_at->format('d M Y, h:i A'),
         ];
     }

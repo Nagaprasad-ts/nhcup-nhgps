@@ -35,10 +35,11 @@ return [
         ],
     ],
 
-    'razorpay' => [
-        'key_id'         => env('RAZORPAY_KEY'),
-        'key_secret'     => env('RAZORPAY_SECRET'),
-        'webhook_secret' => env('RAZORPAY_WEBHOOK_SECRET'),
+    'icici_pg' => [
+        'merchant_id' => env('ICICI_PG_MERCHANT_ID'),
+        'aggregator_id' => env('ICICI_PG_AGGREGATOR_ID'),
+        'key_secret' => env('ICICI_PG_KEY_SECRET'),
+        'api_url' => env('ICICI_PG_API_URL', 'https://pgpayuat.icicibank.com/tsp/pg/api/v2/initiateSale'),
     ],
 
 ];

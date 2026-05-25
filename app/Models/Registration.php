@@ -14,8 +14,8 @@ class Registration extends Model
         'captain_email',
         'captain_contact',
         'event_id',
-        'razorpay_order_id',
-        'razorpay_payment_id',
+        'pg_merchant_txn_no',
+        'pg_payment_id',
         'payment_status',
         'amount',
         'email_sent',
@@ -23,8 +23,8 @@ class Registration extends Model
 
     protected $casts = [
         'email_sent' => 'boolean',
-        'amount'     => 'integer',
-        'event_id'   => 'integer',
+        'amount' => 'integer',
+        'event_id' => 'integer',
     ];
 
     // ─── Scopes ────────────────────────────────────────────────────────────────
