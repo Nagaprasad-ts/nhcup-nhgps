@@ -2,6 +2,10 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Widgets\EventRegistrationTableWidget;
+use App\Filament\Widgets\EventRevenueChart;
+use App\Filament\Widgets\RegistrationStatsWidget;
+use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -10,10 +14,6 @@ use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
-use App\Filament\Widgets\RegistrationStatsWidget;
-use App\Filament\Widgets\EventRevenueChart;
-use App\Filament\Widgets\EventRegistrationTableWidget;
-use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -28,15 +28,16 @@ class AdminPanelProvider extends PanelProvider
         return $panel
             ->default()
             ->id('admin')
+            ->brandName('Skill Builder')
             ->path('admin')
             ->sidebarCollapsibleOnDesktop()
             ->login()
             ->colors([
                 'primary' => Color::Amber,
-                'info'    => Color::Blue,
+                'info' => Color::Blue,
                 'success' => Color::Green,
                 'warning' => Color::Orange,
-                'danger'  => Color::Red,
+                'danger' => Color::Red,
             ])
             ->plugins([
                 FilamentShieldPlugin::make(),
@@ -48,9 +49,9 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
-                RegistrationStatsWidget::class,
-                EventRevenueChart::class,
-                EventRegistrationTableWidget::class,
+                // RegistrationStatsWidget::class,
+                // EventRevenueChart::class,
+                // EventRegistrationTableWidget::class,
             ])
             ->middleware([
                 EncryptCookies::class,

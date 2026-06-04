@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Mail\RegistrationConfirmed;
-use App\Models\Registration;
+use App\Mail\SkillBuilderRegistrationConfirmed;
+use App\Models\SkillBuilderRegistration;
 use App\Services\IciciPgService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,11 +17,6 @@ class IciciPgReturnController extends Controller
      *
      * ICICI redirects the user's browser back to our returnURL via POST,
      * including all transaction response parameters in the request body.
-     * Response parameters vary by payment mode, so all params are captured
-     * dynamically.
-     *
-     * Dashboard → Merchant Portal → configure returnURL:
-     *   https://yourdomain.com/thank-you
      */
     public function handle(Request $request, IciciPgService $pgService): RedirectResponse
     {
@@ -37,7 +32,7 @@ class IciciPgReturnController extends Controller
             return redirect()->route('home');
         }
 
-        $registration = Registration::where('pg_merchant_txn_no', $merchantTxnNo)->first();
+        $registration = SkillBuilderRegistration::firstWhere('pg_merchant_txn_no', $merchantTxnNo);
 
         if (! $registration) {
             Log::error('ICICI PG return: registration not found', ['merchantTxnNo' => $merchantTxnNo]);
@@ -47,7 +42,7 @@ class IciciPgReturnController extends Controller
 
         // Idempotency guard — return URL can be hit more than once
         if ($registration->payment_status === 'paid') {
-            return redirect()->route('registration.success', ['registration_id' => $registration->id]);
+            return redirect()->route('skill-builder.success', ['registration_id' => $registration->id]);
         }
 
         // Verify secureHash to ensure the response is genuinely from ICICI
@@ -73,26 +68,27 @@ class IciciPgReturnController extends Controller
                 'payment_status' => 'paid',
             ]);
 
-            if (! $registration->email_sent) {
+            // Send confirmation email only if the parent provided one
+            if (! $registration->email_sent && $registration->email) {
                 try {
-                    Mail::to($registration->captain_email)
-                        ->send(new RegistrationConfirmed($registration));
+                    Mail::to($registration->email)
+                        ->send(new SkillBuilderRegistrationConfirmed($registration));
 
                     $registration->update(['email_sent' => true]);
 
-                    Log::info('Registration confirmation email sent', [
+                    Log::info('Skill Builder confirmation email sent', [
                         'registration_id' => $registration->id,
-                        'email' => $registration->captain_email,
+                        'email' => $registration->email,
                     ]);
                 } catch (\Exception $e) {
-                    Log::error('Failed to send registration confirmation email', [
+                    Log::error('Failed to send Skill Builder confirmation email', [
                         'registration_id' => $registration->id,
                         'error' => $e->getMessage(),
                     ]);
                 }
             }
 
-            return redirect()->route('registration.success', ['registration_id' => $registration->id]);
+            return redirect()->route('skill-builder.success', ['registration_id' => $registration->id]);
         }
 
         $registration->update(['payment_status' => 'failed']);
@@ -102,6 +98,6 @@ class IciciPgReturnController extends Controller
             'responseCode' => $responseData['responseCode'] ?? 'N/A',
         ]);
 
-        return redirect()->route('registration.create')->with('payment_failed', true);
+        return redirect()->route('skill-builder.register')->with('payment_failed', true);
     }
 }

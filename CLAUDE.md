@@ -4,179 +4,169 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**NH Cup 2026** is a Laravel + React/Inertia application for managing sports tournament registration with integrated payment processing via ICICI Bank PG Direct. The app handles team registrations across multiple events with email confirmations.
-
-### Core Features
-- Public-facing registration form for sports event participation
-- ICICI Bank PG Direct payment gateway (full-page redirect flow)
-- Event management with dynamic fee structures
-- Automated email confirmations post-payment via return URL handler
-- Admin panel (Filament) for managing events and registrations
-- Role-based access control (Spatie Permissions)
+**Skill Builder for Kids** — a children's after-school programme registration site for New Horizon Gurukul Pre School. Parents register their child, pay via ICICI Bank, and receive a confirmation email.
 
 ## Tech Stack
 
-**Backend:** Laravel 13, PHP 8.4
-**Frontend:** React 19, Inertia.js v3, Tailwind CSS v4
-**Database:** SQLite (dev), supports MySQL
-**Payment:** ICICI Bank PG Direct (`initiateSale` API)
-**Build:** Vite, Tailwind, TypeScript
-**Admin Panel:** Filament v5
-**Testing:** Pest 4
-**Code Quality:** Pint (PHP), ESLint, Prettier, TypeScript strict mode
-**Queue:** Database-backed (configured in .env)
+**Backend:** Laravel 13, PHP 8.4  
+**Frontend:** React 19, Inertia.js v3, Tailwind CSS v4  
+**Database:** SQLite (dev), supports MySQL  
+**Payment:** ICICI Bank PG Direct (`initiateSale` API)  
+**Admin Panel:** Filament v5 (`/admin`)  
+**Testing:** Pest 4  
+**Code Quality:** Pint (PHP), ESLint, Prettier, TypeScript strict mode  
+**Queue:** Database-backed  
 
 ## Common Commands
 
-### Development
 ```bash
-# Start local dev server (auto runs Laravel + Vite + Queue listener)
+# Start dev server (Laravel + Vite + Queue listener)
 composer run dev
 
 # Build frontend for production
 npm run build
-```
 
-### Testing & Linting
-```bash
 # Run all tests
 php artisan test --compact
 
-# Run a single test file
-php artisan test tests/Feature/ExampleTest.php
+# Run a single test
+php artisan test --compact --filter=TestName
 
-# Run tests matching a pattern
-php artisan test --compact --filter=testName
-
-# Lint PHP code (auto-fixes) — run after every PHP file change
+# Lint PHP (auto-fixes) — run after every PHP file change
 vendor/bin/pint --dirty
 
-# Lint JavaScript/TypeScript
+# Lint JS/TS (auto-fixes)
 npm run lint
 
 # Check TypeScript types
 npm run types:check
-```
 
-### Database & Migrations
-```bash
-# Run migrations
-php artisan migrate
-
-# Fresh migration (drops all tables, re-runs all migrations)
+# Fresh migration + seed (resets DB)
 php artisan migrate:fresh --seed
 
-# Create a new migration
-php artisan make:migration create_table_name
-```
-
-### Admin & Configuration
-```bash
-# Generate Wayfinder route functions (TypeScript) — run after changing routes
+# Regenerate Wayfinder route helpers — run after any route or controller method change
 php artisan wayfinder:generate
 
 # Clear config cache after .env changes
 php artisan config:clear
 ```
 
-## Project Structure
+## Route Map
 
-### Backend Architecture
+| Method | URL | Handler | Notes |
+|--------|-----|---------|-------|
+| `GET` | `/` | `Inertia::render('Home')` | Landing page |
+| `GET` | `/register` | `SkillBuilderRegistrationController::create` | Form; passes `paymentFailed` flash |
+| `POST` | `/register` | `SkillBuilderRegistrationController::store` | Returns `{ payment_url }` JSON |
+| `GET` | `/register/success` | `SkillBuilderRegistrationController::success` | Post-payment page |
+| `POST` | `/thank-you` | `IciciPgReturnController::handle` | ICICI browser-POST return URL |
+| `GET` | `/admin` | Filament panel | Gated by `super_admin` or `core-team` role |
 
-**Models** (`app/Models/`)
-- `User` — Application users; Filament admin access gated via Spatie Permissions (`super_admin` or `core-team` role)
-- `Event` — Sports events with `is_active` flag and `fee`; scoped via `Event::active()`
-- `Registration` — Team registration records tracking PG payment state (`pg_merchant_txn_no`, `pg_payment_id`, `payment_status`)
+`POST /thank-you` is excluded from CSRF in `bootstrap/app.php`.
 
-**Controllers** (`app/Http/Controllers/`)
-- `RegistrationController` — Renders registration forms, calls `IciciPgService` to initiate payment, returns `payment_url` JSON, and renders the success page
-- `IciciPgReturnController` — Handles the POST from ICICI on `/thank-you` after payment completes; updates registration status and sends confirmation email
+## Frontend Architecture
 
-**Services** (`app/Services/`)
-- `IciciPgService` — All ICICI PG Direct logic: alphabetical-sort HMAC-SHA256 hash generation, `initiateSale` API call via `Http::post`, response hash verification, `merchantTxnNo` construction, and payment URL assembly
+`app.tsx` resolves Inertia pages as `./pages/${name}.tsx`. Pages live flat in `resources/js/pages/`:
 
-### Payment Flow (ICICI PG Direct)
+- `Home.tsx` — landing page
+- `Register.tsx` — registration form (uses `axios.post`, not Inertia `useForm`)
+- `RegisterSuccess.tsx` — post-payment confirmation
+- `components/` — Hero, Programmes, WhyParents, Schedule, FooterCTA, ScrollToTop, Toast, RegistrationModal
+
+### Why `axios.post` instead of Inertia `useForm` in Register.tsx
+
+`POST /register` returns JSON (`{ payment_url }`), not an Inertia response. On success, the frontend does `window.location.href = payment_url` to redirect to ICICI's hosted page. Validation errors (HTTP 422) come back as `{ errors: { fieldName: 'message' } }` and are shown per-field. The `paymentFailed` boolean prop (Inertia shared prop, from session flash) triggers a dismissable banner when ICICI redirects back after a failed payment.
+
+### Skill Builder Brand
+
+Defined in `resources/css/app.css` via Tailwind v4 `@theme`:
+- `navy` → `#0f2f5e`, `coral` → `#f05a28`, `iceblue` → `#e8f4ff`
+- Font: Nunito — wrap pages in `className="font-nunito"`
+- CSS utilities: `.card-pink`, `.card-blue`, `.card-green`, `.lift`, `.float`, `.toast-show`
+- Google Fonts `@import` must come **before** `@import 'tailwindcss'` (PostCSS requirement)
+
+### Images
+
+All images are in `public/images/` — reference as `/images/filename`. Logo: `/images/nhgps_logo.png`.
+
+## Backend Architecture
+
+### Payment Flow
 
 ```
-User submits form
-  → POST /register (RegistrationController::store)
-  → Create pending Registration record
-  → Build merchantTxnNo = "NH" + zero-padded registration ID (20 chars)
-  → ksort all params alphabetically, HMAC-SHA256 values, add secureHash
-  → POST to ICICI initiateSale API → get redirectURI + tranCtx
-  → Return { payment_url: "redirectURI?tranCtx=..." } as JSON
+POST /register
+  → Validate (all fields required; email mandatory for ICICI)
+  → Create pending SkillBuilderRegistration (gets DB ID for merchantTxnNo)
+  → Build merchantTxnNo: "SB" + 10-digit Unix timestamp + 8-digit zero-padded ID (20 chars total)
+  → Call IciciPgService::initiateSale()
+      [on failure → delete registration row, return 500 JSON]
+  → Return { registration_id, payment_url } JSON
   → Frontend: window.location.href = payment_url
-  → User completes payment on ICICI's hosted page
-  → ICICI POSTs response to POST /thank-you (IciciPgReturnController::handle)
-  → Verify response secureHash, check responseCode === "0000"
-  → Update Registration: status = paid, pg_payment_id = pgTxnNo/bankTxnNo
-  → Send RegistrationConfirmed email (fire-and-forget)
-  → Redirect → GET /register/success?registration_id=X
+  → User pays on ICICI hosted page
+  → ICICI browser-POSTs to POST /thank-you
+  → Verify secureHash
+  → responseCode "0000" = success; update to paid, send confirmation email
+  → Redirect to GET /register/success?registration_id=X
+
+On payment failure:
+  → Update status to "failed"
+  → Redirect to GET /register with payment_failed flash
 ```
 
-**Key difference from webhook-based gateways:** ICICI uses a browser POST redirect to the `returnURL` (not a server-to-server webhook). The user's browser carries the POST body to `/thank-you`. This is why `/thank-you` is excluded from CSRF protection in `bootstrap/app.php`.
+### IciciPgService (`app/Services/IciciPgService.php`)
 
-### Frontend Architecture
+- `initiateSale(array $params)` — adds `secureHash`, POSTs to ICICI, returns decoded JSON
+- `generateSecureHash(array $data)` — `ksort` keys → concat values → `hash_hmac('sha256', ...)`  
+- `verifyResponseHash(array $responseData)` — strips `secureHash`, recomputes, compares
+- `buildMerchantTxnNo(int $id)` — `"SB" . str_pad(now()->timestamp, 10) . str_pad($id, 8)` — timestamp prefix prevents P1006 collisions after DB resets
+- `buildPaymentUrl(string $redirectUri, string $tranCtx)` — `redirectUri?tranCtx=<encoded>`
 
-**Pages** (`resources/js/Pages/`)
-- `Home.tsx` — Landing page with tournament info and brochure download
-- `Registration/Create.tsx` — Multi-event registration form; POSTs to `/register`, redirects browser to `payment_url`
-- `Basketball/Create.tsx` — Basketball-only registration form (fixed event, same payment flow)
-- `Registration/Success.tsx` — Post-payment confirmation page
+### Key constants / config
 
-**Frontend Pattern**
-- Form submits via `axios.post('/register', ...)` → receives `{ payment_url }` → sets `step = 'redirecting'` → `window.location.href = payment_url`
-- No payment SDK loaded on frontend; ICICI payment happens on their hosted page
+**Programme fees** — defined in `SkillBuilderRegistrationController::FEES` (rupees). **Update before going live.**
 
-### Database Schema
-
-**registrations table** (key columns)
-- `pg_merchant_txn_no` — ICICI transaction reference (`NH` + 18-digit padded ID), unique, nullable
-- `pg_payment_id` — ICICI payment ID from return URL response (`pgTxnNo`/`bankTxnNo`), unique, nullable
-- `payment_status` — enum: `pending` | `paid` | `failed`
-- `amount` — registration fee in rupees (integer)
-- `email_sent` — boolean, prevents duplicate confirmation emails
-
-**events table**: `id`, `name`, `fee`, `is_active`, `timestamps`
-
-### Configuration
-
-**`config/services.php` → `icici_pg`**
+**`config/services.php` → `icici_pg`:**
 ```
-ICICI_PG_MERCHANT_ID     — from onboarding email
-ICICI_PG_AGGREGATOR_ID   — from onboarding email (optional; omit if not provided)
-ICICI_PG_KEY_SECRET      — HMAC secret downloaded from dashboard
-ICICI_PG_API_URL         — UAT: https://pgpayuat.icicibank.com/tsp/pg/api/v2/initiateSale
-                           Live: https://pgpay.icicibank.com/pg/api/v2/initiateSale
+ICICI_PG_MERCHANT_ID    — merchant ID
+ICICI_PG_AGGREGATOR_ID  — optional; omitted from request if empty (via array_filter)
+ICICI_PG_KEY_SECRET     — HMAC secret
+ICICI_PG_API_URL        — UAT: https://pgpayuat.icicibank.com/tsp/pg/api/v2/initiateSale
+                          Live: https://pgpay.icicibank.com/pg/api/v2/initiateSale
 ```
 
-## Key Architectural Decisions
+`txnDate` is always sent as `YYYYMMDD235959` (end of day) — ICICI requires it to be greater than initiation time.
 
-1. **Registration-first, then PG call:** The `Registration` record is created before calling ICICI (to get the ID for `merchantTxnNo`). If the ICICI call fails, the pending registration is deleted. This avoids orphaned records on API failure.
+`aggregatorID` is excluded from the request (and therefore the secureHash) via `array_filter` when empty.
 
-2. **Pending → Paid via return URL:** Unlike webhook-based gateways, ICICI sends the payment result as a POST to `returnURL` through the user's browser. The return URL handler at `POST /thank-you` verifies the `secureHash` and updates status.
+`customerEmailID` is **mandatory** per ICICI spec — the form enforces email as required.
 
-3. **`responseCode === "0000"` for success:** The return URL uses `0000` for success (different from `R1000` used by the `initiateSale` response). Log the full response during UAT testing to confirm — check `storage/logs/laravel.log`.
+### ICICI response codes
 
-4. **Idempotency guard:** `IciciPgReturnController` checks `payment_status === 'paid'` before re-processing, preventing duplicate emails if the return URL is hit twice.
+- `R1000` — `initiateSale` API call accepted
+- `0000` — payment successful (on `/thank-you` return URL)
+- `P1006` — "Merchant reference number should be unique" — merchantTxnNo already used in ICICI's system. Solved by embedding the Unix timestamp in the txnNo (`SB` + 10-digit timestamp + 8-digit ID) so it is unique even after `migrate:fresh` resets auto-increment IDs.
 
-5. **Aggregator ID is optional:** If `ICICI_PG_AGGREGATOR_ID` is empty, it's excluded from the request via `array_filter`. The HMAC is computed only over the fields actually sent.
+### Payment ID field priority (on return URL)
 
-6. **Event-Scoped Queries:** `Event::active()` scope filters inactive events, allowing admins to close registration without deleting data.
+`paymentID` (cards) → `txnID` (UPI/wallet) → `pgTxnNo` → `bankTxnNo`
 
-## Important Notes
+### Admin Panel
 
-- **CSRF exclusion:** `POST /thank-you` is excluded from CSRF verification in `bootstrap/app.php` — required because the POST comes from ICICI's redirect, not a form with a CSRF token.
-- **`txnDate` format:** Sent as `YYYYMMDD235959` (today's date at 23:59:59) to ensure it is always greater than the initiation time, as required by ICICI.
-- **Email configuration:** Dev uses log driver (check `storage/logs/`); production requires SMTP setup.
-- **Brochure file:** Served from `public/brochure-file/NHCUP-2026-BROCHURE.pdf`; ensure the file exists before deployment.
-- **Vite build:** Run `npm run build` before deploying; if a frontend change isn't visible, run `npm run dev` or `composer run dev`.
+Filament v5 at `/admin`. Two resources:
+- **Skill Builder Registrations** — filterable by programme, payment status, age; badge-coloured payment status
+- **Users** — role management via Spatie Permissions
+
+Roles: `super_admin`, `core-team` (seeded by `UserSeeder`).  
+Filament v5 uses `getNavigationGroup(): ?string` method — not the `$navigationGroup` property (type conflict with parent).
+
+### Wayfinder
+
+`resources/js/actions/` and `resources/js/routes/` are auto-generated. Re-run `php artisan wayfinder:generate` after any route or controller method change. Never edit these files manually.
 
 ## Skills to Use When Developing
 
-Always activate the relevant skill for your current task:
-- **laravel-best-practices** — When modifying controllers, models, migrations, queries, or backend patterns
-- **pest-testing** — When writing or fixing tests
-- **inertia-react-development** — When working with React pages, forms, or Inertia integration
-- **tailwindcss-development** — When styling components or building responsive layouts
-- **wayfinder-development** — When connecting frontend to backend routes/controllers
+- **laravel-best-practices** — controllers, models, migrations, queries
+- **pest-testing** — writing or fixing tests
+- **inertia-react-development** — React pages, Inertia navigation
+- **tailwindcss-development** — styling, responsive layouts
+- **wayfinder-development** — after changing routes or controller methods

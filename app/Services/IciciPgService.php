@@ -73,11 +73,23 @@ class IciciPgService
     /**
      * Build the merchantTxnNo from a registration ID.
      *
-     * Format: "NH" + zero-padded registration ID = exactly 20 chars.
+     * Format: "SB" + 10-digit Unix timestamp + 8-digit zero-padded ID = exactly 20 chars.
+     *
+     * The timestamp component ensures the txnNo is globally unique even when the
+     * database is reset (migrate:fresh) and auto-increment IDs restart from 1.
+     * ICICI retains all historical txnNos, so a plain ID-only format would cause
+     * P1006 ("Merchant reference number should be unique") after any DB reset.
+     *
+     * Example: SB178042316800000001
+     *          ^^            ← "SB" prefix (Skill Builder)
+     *            ^^^^^^^^^^  ← Unix timestamp (10 digits, valid until ~year 2286)
+     *                      ^^^^^^^^ ← registration ID, zero-padded to 8 digits
      */
     public function buildMerchantTxnNo(int $registrationId): string
     {
-        return 'NH'.str_pad((string) $registrationId, 18, '0', STR_PAD_LEFT);
+        return 'SB'
+            .str_pad((string) now()->timestamp, 10, '0', STR_PAD_LEFT)
+            .str_pad((string) $registrationId, 8, '0', STR_PAD_LEFT);
     }
 
     /**
