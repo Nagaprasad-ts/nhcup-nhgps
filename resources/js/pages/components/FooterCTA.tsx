@@ -36,7 +36,7 @@ export default function FooterCTA() {
             Register Now ✦
           </button>
           <p className="text-blue-300 text-sm font-semibold text-center">
-            Open to all · Age 3–8 · Jun 2026<br />Limited seats — enrol early
+            Open to all · Age 3-8 · Jun 2026<br />Limited seats — enrol early
           </p>
         </div>
       </div>
@@ -48,6 +48,7 @@ export default function FooterCTA() {
           { label: 'Privacy Policy', href: '/privacy-policy' },
           { label: 'Refund Policy', href: '/refund-policy' },
           { label: 'Cancellation Policy', href: '/cancellation-policy' },
+          { label: 'Contact Us', href: '/contact'},
         ].map(({ label, href }) => (
           <button
             key={href}

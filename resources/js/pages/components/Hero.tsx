@@ -109,12 +109,6 @@ export default function Hero({ onRegister, event }: HeroProps) {
             >
               Learn More →
             </button>
-            <button
-              onClick={() => router.visit('/contact')}
-              className="flex-1 sm:flex-none border-2 border-navy/25 hover:border-navy text-navy font-bold text-sm px-4 sm:px-8 py-3.5 rounded-full transition-all bg-white/60 backdrop-blur-sm text-center items-center justify-center hidden sm:flex"
-            >
-              Contact Us
-            </button>
           </div>
 
           {/* Stats row */}
