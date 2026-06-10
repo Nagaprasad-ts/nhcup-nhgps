@@ -35,6 +35,10 @@ return [
         ],
     ],
 
+    'google_analytics' => [
+        'id' => env('GOOGLE_ANALYTICS_ID'),
+    ],
+
     'icici_pg' => [
         'merchant_id' => env('ICICI_PG_MERCHANT_ID'),
         'aggregator_id' => env('ICICI_PG_AGGREGATOR_ID'),
